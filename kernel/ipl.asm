@@ -4,8 +4,8 @@
 ; Create on 23/12/03
 
 ; Define
-org	0x7c00
-bits	16
+[org 0x7c00]
+[bits 16]
 BytPerSec	equ 512
 SecPerTra	equ 18
 SecPerCls	equ 1
@@ -18,6 +18,7 @@ FATSizeSc	equ	(2*DiskSizeS/SecPerCls+BytPerSec-1)/BytPerSec
 RootSizeC	equ (32-MbrSecCnt-FATsCount*FATSizeSc)*16
 DeviceFID	equ	0xf0
 DeviceBID	equ	0x00
+Cyls	equ 0x000a
 
 ; 磁盤聲明
 jmp entry
@@ -50,45 +51,22 @@ entry:
 	mov ss, ax
 	mov sp, 0x7c00
 	mov ds, ax
+	mov byte [Cyls], 0x20
 
+	mov si, StrNothing
+	call puts
 	mov si, entry-21
 	call puts
 	mov si, entry-10
 	call puts
 
 	call load
-	; call success
-	mov ax, 14
-	mov ds, ax
-	call puts
-	mov ax, 15
-	mov ds, ax
-	call puts
+	call success
 	call final
 
 final:
 	hlt
 	jmp final
-strcmp:
-	xor al, al
-	push bx
-	call .for
-	pop bx
-	ret
-	.for:
-		cmp ah, 0
-		jg .cont
-		mov al, 1
-		ret
-	.cont:
-		mov bh, [di]
-		mov bl, [si]
-		dec ah 
-		inc si 
-		inc di
-		cmp bh, bl
-		je .for
-		ret
 
 io:
 	puts:
@@ -129,7 +107,7 @@ load:
 		xor si, si 
 		.retry:
 			mov ah, 0x02
-			mov al, 0x02
+			mov al, 0x01
 			mov bx, 0x0000
 			mov dl, DeviceBID 
 			int 0x13
@@ -147,7 +125,7 @@ load:
 			call final
 		.next:
 			mov ax, es 
-			add ax, 0x0040
+			add ax, 0x0020
 			mov es, ax
 			inc cl 
 			cmp cl, SecPerTra
@@ -160,29 +138,16 @@ load:
 
 			xor dh, dh
 			inc ch
-			cmp ch, 16
+			mov ah, [Cyls]
+			cmp ch, ah
 			jl .readloop
 		ret
 success:
 	mov si, RFS_MSG
 	call puts
-	mov ax, 0x0800
-	mov ds, ax
-	xor si, si 
-	.for:
-		mov al, [si]
-		cmp al, 0
-		je .noc
-		mov ah, 0x0e
-		mov al, "F"
-		int 0x10
-		call putstr
-		.noc:
-		mov ax, ds 
-		add ax, 2
-		mov ds, ax
-		cmp ax, 0x0a000
-		jl .for
+	mov si, 0x9c00
+	call puts
+	jmp 0xc000
 	ret
 
 Text:
